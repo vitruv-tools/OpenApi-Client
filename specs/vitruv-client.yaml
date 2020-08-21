@@ -1,0 +1,551 @@
+openapi: 3.0.0
+info:
+  title: Vitruv Client API
+  description: >-
+    Basic API to manage and communicate with a Virtual Single Underlying Model
+    (VSUM) in Vitruv
+  license:
+    name: EPL 2.0
+    url: 'https://www.eclipse.org/legal/epl-2.0/'
+  version: 0.3.0
+servers:
+  - url: '{protocol}://{host}/{basePath}'
+    description: Vitruv server
+    variables:
+      protocol:
+        enum:
+          - http
+          - https
+        default: http
+      host:
+        default: 'localhost:8080'
+      basePath:
+        default: vitruv
+paths:
+  /vsum:
+    post:
+      tags:
+        - VSUM
+      operationId: createVSUM
+      summary: Creates a VSUM with the given name.
+      description: Creates a VSUM using the VSUM-Config information and returns its id. Name needs to be set. Id will be ignored. Domain and Specification are optional.
+      requestBody:
+        description: Configuration Information to describe a VSUM. Name is required. Id will be ignored. Specification and Domain are optional. 
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VSUMConfig'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+          description: unique id of the created VSUM
+    get:
+      tags:
+        - VSUM
+      operationId: getListOfVSUMs
+      summary: Returns a list with the name and id of all VSUMS.
+      description: Returns a list with the names and ids of all VSUMS. The List contains pairs of ids and names.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IdNamePair'
+          description: unique id of the created VSUM
+  '/vsum/{id}':
+    parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    get:
+      tags:
+        - VSUM
+      operationId: getVSUMConfiguration
+      summary: Gets the VSUM Configuration for the given id.
+      description: Returns the VSUM Configuration for the given id. If such a Configuration does not exist, the method returns a Not Found Response.
+      responses:
+        '200':
+          description: The Configuration of the VSUM project with the given id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSUMConfig'
+        '404':
+          description: No VSUM project with the given id exists
+    delete:
+      tags:
+        - VSUM
+      operationId: deleteVSUM
+      summary: Deletes the VSUM with the given id.
+      description: Deletes and returns the VSUM Configuration for the given id. If such a Configuration does not exist, the method returns a Not Found Response.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSUMConfig'
+          description: The VSUM with the returned configuration was successfully deleted.
+        '404':
+          description: No VSUM with the given id exists
+  '/vsum/{vsumId}/domain':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    post:
+      tags:
+        - VSUM
+      operationId: addDomainToVSUM
+      summary: Adds a domain with the given id to the VSUM.
+      description: Adds a domain with the given id to the VSUM. Returns the VSUM-specific id for this domain. Returns Not Found if the domain does not exist.
+      requestBody:
+        description: Id of the domain that should be added to the VSUM. Use getAllDomains (GET "/domains") to get a list of all domains that can be added to a VSUM.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Identifier'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+          description: VSUM-specific id of the created domain
+        '303':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+          description: Same Domain already exists and has the returned id.
+        '404':
+          description: No domain with the given id exists.
+    get:
+      tags:
+        - VSUM
+      summary: Returns the domains that are part of the VSUM.
+      description: Returns the domains that are part of the VSUM. The result is a pair of the VSUM-specific domain id and the domain name.
+      operationId: getVSUMDomains
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IdNamePair'
+          description: A list that pairs the VSUM-specific id of the domain with the name of the domain.
+  '/vsum/{vsumId}/domain/{domainId}':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+      - in: path
+        name: domainId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    put:
+      summary: Replaces a domain with another domain.
+      description: Replace the domain with the VSUM-specific id with the other domain. Fails if the VSUM-specific id or the VSUM-independent id does not exists or if the domain with the VSUM-independent id is already part of the VSUM.
+      operationId: replaceDomain
+      requestBody:
+        description: Id of the domain that should replace the other domain. Use getAllDomains (GET "/domains") to get a list of all known domains.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Identifier'
+      responses:
+        '200':
+          description: The returned domain was successfully replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+        '404':
+          description: No domain with the given VSUM-specific or VSUM-independent id exists.
+        '409':
+          description: The domain cannot be replaced because the new domain is already part of the VSUM. Use removeDomain (DELETE "/vsum/{vsumId}/domain/{domainId}")instead to remove the domain from the VSUM.
+      tags:
+        - VSUM
+    delete:
+      tags:
+        - VSUM
+      summary: Remove the domain with the given id from the VSUM.
+      description: Remove the domain with the given id from the VSUM and return its VSUM-independent id. Returns Not Found if no domain with the given id exists.
+      operationId: removeDomain
+      responses:
+        '200':
+          description: The returned domain was successfully removed from the VSUM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+        '404':
+          description: VSUM contains no domain with the given id.
+  '/vsum/{vsumId}/specification':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    post:
+      tags:
+        - VSUM
+      operationId: addConsistencySpecificationsToVSUM
+      summary: Adds a consistency specification with the given id to the VSUM.
+      description: Adds a consistency specification with the given id to the VSUM. Returns the VSUM-specific id for this consistency specification. Returns Not Found if the consistency specification does not exist.
+      requestBody:
+        description: Id of the consistency specification that should be added to the VSUM. Use getAllConsistencySpecifications (GET "/specifications") to get a list of all consistency specification that can be added to a VSUM.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Identifier'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+          description: VSUM-specific id of the created consistency specification
+        '303':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+          description: Same consistency specification already exists and has the returned id.
+        '404':
+          description: No consistency specification with the given id exists.
+    get:
+      tags:
+        - VSUM
+      summary: Returns the consistency specifications that are part of the VSUM.
+      description: Returns the consistency specifications that are part of the VSUM. The result is a pair of the VSUM-specific consistency specification id and the consistency specification name.
+      operationId: getVSUMConsistencySpecifications
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IdNamePair'
+          description: A list that pairs the VSUM-specific id of the consistency specification with the name of the consistency specification.
+  '/vsum/{vsumId}/specification/{specificationId}':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+      - in: path
+        name: specificationId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    put:
+      summary: Replaces a consistency specification with another consistency specification.
+      description: Replace the consistency specification with the VSUM-specific id with the other consistency specification. Fails if the VSUM-specific id or the VSUM-independent id does not exists or if the consistency specification with the VSUM-independent id is already part of the VSUM.
+      operationId: replaceConsistencySpecification
+      requestBody:
+        description: Id of the consistency specification that should replace the other consistency specification. Use getAllConsistencySpecifications (GET "/specifications") to get a list of all known consistency specification.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Identifier'
+      responses:
+        '200':
+          description: The returned VSUM-independent id of the consistency specification that was successfully replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+        '404':
+          description: No consistency specification with the given VSUM-specific or VSUM-independent id exists.
+        '409':
+          description: The consistency specification cannot be replaced because the new consistency specification is already part of the VSUM. Use removeConsistencySpecification (DELETE "/vsum/{vsumId}/specification/{specificationId}") instead to remove the consistency specification from the VSUM.
+      tags:
+        - VSUM
+    delete:
+      tags:
+        - VSUM
+      summary: Remove the consistency specification with the given id from the VSUM.
+      description: Remove the consistency specification with the given id from the VSUM and return its name. Returns Not Found if no consistency specification with the given id exists.
+      operationId: removeConsistencySpecification
+      responses:
+        '200':
+          description: The returned consistency specification was successfully removed from the VSUM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identifier'
+        '404':
+          description: VSUM contains no consistency specification with the given id.
+  '/vsum/{vsumId}/domain/{domainId}/model':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+      - in: path
+        name: domainId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    post:
+      tags:
+        - View
+      deprecated: true
+      summary: Creates a model from the given metamodel type.
+      description: Creates a model from the given metamodel type. Returns the id of the created model. (VirtualModel has not such a method. TODO Add this method to VirtualModel or wait for View generation)
+      operationId: createModel
+      requestBody:
+        description: Type of the root element that should be created
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RootElement'
+      responses:
+        '201':
+          description: The returned id of the created model
+          content:
+            application/json:
+              schema:
+                properties:
+                  modelId:
+                    type: string
+        '400': 
+          description: Type of the root element does not exist.
+        
+    get:
+      tags:
+        - View
+      deprecated: true
+      summary: Gets a list of all model from the given metamodel type.
+      description: Returns a list of existing models from the given metamodel type. Returns the ids of the models. (VirtualModel has not such a method. TODO Add this method to VirtualModel or wait for View generation)
+      operationId: getAllModels
+      responses:
+        '200':
+          description: A list with ids of the models
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Identifier'
+  '/vsum/{vsumId}/domain/{domainId}/model/{modelId}':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+      - in: path
+        name: domainId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+      - in: path
+        name: modelId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    get:
+      tags:
+        - View
+      deprecated: true
+      summary: Returns the model with the given id.
+      description: Returns the model with the given id. Returns Not Found if the model does not exist.
+      operationId: getModel
+      responses:
+        '200':
+          description: The model with the given id.
+          content:
+            application/xmi:
+              example: <?xml version="1.0" encoding="UTF-8"?> <persons:PersonRegister xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:persons="edu.kit.ipd.sdq.metamodels.persons" id="42"> <persons xsi:type="persons:Male" fullName="John Doe" birthday="2001-01-01T00:00:00.000+0100"/> </persons:PersonRegister>
+        '404':
+          description: No model with the given id exists.
+  /domains:
+    get:
+      summary: Returns alist of all known domains.
+      description: Returns a list of all known domains. The list contains pairs of the VSUM-independent domain ids and domain names
+      operationId: getAllDomains
+      responses:
+        '200':
+          description: The list of all known domains
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IdNamePair'
+      tags:
+        - Domain
+  /specifications:
+    get:
+      summary: Returns a list of all known consistency specifications
+      description: Returns a list of all known consistency specifications. The list contains pairs of the VSUM-independent consistency specification ids and consistency specification names
+      operationId: getAllConsistencySpecifications
+      responses:
+        '200':
+          description: The list of all known consistency specifications
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IdNamePair'
+      tags:
+        - Consistency Specification
+  /viewTypes:
+    get:
+      summary: Returns list of all known view types
+      description: Returns a list of all known view types. The list contains pairs of the VSUM-independent view type ids and view type names (TODO View types don't exist at the moment)
+      operationId: getAllViewTypes
+      responses:
+        '200':
+          description: The list of all known view types
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IdNamePair'
+      tags:
+        - View Type
+  '/vsum/{vsumId}/update':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true
+    post:
+      summary: Update a view of the VSUM.
+      description: 'Update a view of the VSUM. TODO Define DTOs to describe an update. For example: pair of view id and new model state or pair of view id and change sequence'
+      operationId: updateView
+      responses:
+        200:
+          description: 'View successfully updated (TODO: Content of response)'
+        201: 
+          description: 'Returns id of change propagation task that needs manual actions. (TODO: Content of response)'
+        202:
+          description: Consistency Propagation cant be processed. Methodologist needs to look at the update and decide if propagation can be proceeded or not. 
+        400:
+          description: Consistency Propagation cant be processed. The given changes or model are illegal. 
+      tags:
+        - Change Propagation
+    get:
+      summary: Get a list of all open manual change propagation tasks for this VSUM.
+      description: Returns a list with the ids of all open manual change propagation tasks.
+      operationId: getAllOpenTaskIds
+      responses:
+        200:
+          description: List of all open manual change propagation tasks.
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Identifier'
+                
+      tags:
+        - Change Propagation
+  '/vsum/{vsumId}/update/{taskId}':
+    parameters:
+      - in: path
+        name: vsumId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true  
+      - in: path
+        name: taskId
+        schema:
+          type: string
+        allowEmptyValue: false
+        required: true 
+    post:
+      summary: Updates decision of the given manual change propagation task.
+      description: 'Updates decision of the given manual change propagation task.TODO Define DTOs to describe an update.'
+      operationId: commitUserInteraction
+      responses:
+        200:
+          description: 'View successfully updated (TODO: Content of response)'
+        201: 
+          description: 'Returns id of change propagation task that needs manual actions. (TODO: Content of response)'
+        202:
+          description: Consistency Propagation cant be processed. Methodologist needs to look at the update and decide if propagation can be proceeded or not. 
+        400:
+          description: Consistency Propagation cant be processed. The given user interaction is illegal. 
+      tags:
+        - Change Propagation
+    get:
+      summary: Returns the open manual change propagation task for the given id.
+      description: 'Returns the open manual change propagation task for the given id. TODO: Define DTOs to describe an manual task.'
+      operationId: getUserInteraction
+      responses:
+        200:
+          description: 'The manual change propagation task for the given id. TODO: Define DTOs to describe an manual task.'
+      tags:
+        - Change Propagation
+components:
+  schemas:
+    VSUMConfig:
+      title: A Configuration Object to describe a VSUM
+      type: object
+      properties:
+        id:
+          type: string
+          description: Id of the VSUM
+        name:
+          type: string
+          description: Name of the VSUM
+        domains:
+          type: array
+          items: 
+            type: string
+          description: Ids of the Domains that are part of the VSUM
+        specifications:
+          type: array
+          items: 
+            type: string
+          description: Ids of the Consistency Specifications that are part of the VSUM
+    IdNamePair:
+      title: A Pair of id and name
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    Identifier:
+      title: A Object with an id
+      type: object
+      properties:
+        id:
+          type: string
+    RootElement:
+      title: An object to describe the type of an root element 
+      type: object
+      properties:
+        rootElementType: 
+          type: string
